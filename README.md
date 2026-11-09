@@ -1,7 +1,6 @@
 # cg-retro
 
-chicken gun port for jailbroken ios 6 and later, armv7 and arm64. ios 16 and
-64-bit devices need real-device testing.
+chicken gun port for jailbroken ios 6 and later, armv7 and arm64.
 
 ## build
 
