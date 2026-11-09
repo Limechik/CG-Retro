@@ -4,6 +4,7 @@ CG_SDK_V7 ?= $(error set CG_SDK_V7 to the armv7 SDK)
 CG_SDK_V64 ?= $(error set CG_SDK_V64 to the arm64 SDK)
 CG_CRT_V7 ?= $(CG_SDK_V7)/usr/lib/crt1.o
 BUILD ?= build
+VERSION := $(shell awk '/^Version:/ { print $$2; exit }' control)
 CC := $(TC)/clang
 SOURCES := $(wildcard src/*.m) $(wildcard src/*.c)
 OBJECTS_V7 := $(addprefix $(BUILD)/armv7/,$(addsuffix .o,$(SOURCES)))
@@ -50,7 +51,7 @@ deb: $(BUILD)/ChickenGun
 	cp -R Resources/. $(BUILD)/stage/Applications/ChickenGun.app/
 	cp $(BUILD)/ChickenGun $(BUILD)/stage/Applications/ChickenGun.app/ChickenGun
 	chmod 755 $(BUILD)/stage/Applications/ChickenGun.app/ChickenGun
-	dpkg-deb --root-owner-group -Zgzip --build $(BUILD)/stage $(BUILD)/cg-retro.deb
+	dpkg-deb --root-owner-group -Zgzip --build $(BUILD)/stage $(BUILD)/cg-retro-$(VERSION).deb
 
 ipa: $(BUILD)/ChickenGun
 	rm -rf $(BUILD)/ipa-stage
@@ -58,9 +59,9 @@ ipa: $(BUILD)/ChickenGun
 	cp -R Resources/. $(BUILD)/ipa-stage/Payload/ChickenGun.app/
 	cp $(BUILD)/ChickenGun $(BUILD)/ipa-stage/Payload/ChickenGun.app/ChickenGun
 	chmod 755 $(BUILD)/ipa-stage/Payload/ChickenGun.app/ChickenGun
-	rm -f $(BUILD)/cg-retro.ipa
-	cd $(BUILD)/ipa-stage && zip -qr "$(abspath $(BUILD))/cg-retro.ipa" Payload
-	unzip -tq $(BUILD)/cg-retro.ipa
+	rm -f $(BUILD)/cg-retro-$(VERSION).ipa
+	cd $(BUILD)/ipa-stage && zip -qr "$(abspath $(BUILD))/cg-retro-$(VERSION).ipa" Payload
+	unzip -tq $(BUILD)/cg-retro-$(VERSION).ipa
 
 clean:
 	rm -rf $(BUILD)

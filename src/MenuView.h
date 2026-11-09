@@ -16,7 +16,7 @@
 @property (nonatomic, copy)   NSString *playerName;      // хранится в NSUserDefaults, по тапу на плашку — правка
 @property (nonatomic)         int level;                 // число в кружке слева сверху
 @property (nonatomic)         float progress;            // 0...1, полоска опыта под именем
-@property (nonatomic, copy)   NSString *versionString;   // «v 1.3.6» слева снизу
+@property (nonatomic, copy)   NSString *versionString;
 
 - (void)startAnimations;                                 // «дыхание» курицы; вызывать при показе меню
 - (void)refreshOutfit;                                   // перечитать надетые предметы из магазина (шапка, очки, обувь, клюв)

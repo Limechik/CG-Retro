@@ -75,7 +75,7 @@ for x, name in ((191, 'Shop'), (499, 'Play'), (807, 'Servers')):
     d.rounded_rectangle(bb, radius=4 * s * K, fill=PANEL, outline=BORDER, width=bw)
     text_c(bb, name, font(max(36 * s, 15)), TEXT)
 bx = R(0, 2, 22, 560, 160, 30)
-d.text((bx[0], (bx[1] + bx[3]) / 2), 'v 1.3.6', font=sans(max(20 * s, 10)), fill=TEXT, anchor='lm')
+d.text((bx[0], (bx[1] + bx[3]) / 2), 'v 2.0', font=sans(max(20 * s, 10)), fill=TEXT, anchor='lm')
 
 img.convert('RGB').resize((W, H), Image.LANCZOS).save(out)
 print('сохранено', out)

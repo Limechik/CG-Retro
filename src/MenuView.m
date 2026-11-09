@@ -83,7 +83,8 @@ static UIImage *ShadowImage(void) {
 
         _level = 1;
         _progress = 0;
-        _versionString = @"v 1.3.6";
+        NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+        _versionString = [NSString stringWithFormat:@"v %@", version ? version : @""];
         NSString *saved = [[NSUserDefaults standardUserDefaults] stringForKey:kNameDefaultsKey];
         _playerName = [saved length] ? [saved copy] : kDefaultName;
 
