@@ -8,15 +8,27 @@
 #import "ShopView.h"
 #import "NewGameView.h"
 #import "HUDButton.h"
+#import "PauseView.h"
 #import <QuartzCore/QuartzCore.h>
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES2/gl.h>
 #import <OpenGLES/ES2/glext.h>
+#import <objc/message.h>
 
 #define STICK_RADIUS 70.0f       // пикселей (в пунктах) до полного отклонения
 #define LOOK_SENSITIVITY 0.006f  // рад на пункт
 
-@interface GameView () <MenuViewDelegate, ShopViewDelegate, NewGameViewDelegate>
+@interface CGGameMenuButton : UIButton
+@end
+
+@implementation CGGameMenuButton
+- (void)setHighlighted:(BOOL)highlighted {
+    [super setHighlighted:highlighted];
+    self.backgroundColor = highlighted ? [UIColor colorWithRed:0.72f green:0.85f blue:0.50f alpha:0.95f] : [UIColor colorWithRed:0.85f green:0.93f blue:0.68f alpha:0.90f];
+}
+@end
+
+@interface GameView () <MenuViewDelegate, ShopViewDelegate, NewGameViewDelegate, PauseViewDelegate>
 @end
 
 @implementation GameView {
@@ -37,6 +49,8 @@
     HUDButton *_jumpBtn;
     MenuView *_menu;               // главное меню поверх всего; пока оно видно, цикл отрисовки на паузе
     BOOL _menuVisible;
+    PauseView *_pauseView;
+    BOOL _appInactive;
     ShopView *_shop;              // магазин поверх меню (создаётся при каждом открытии)
     NewGameView *_newGame;        // экран «Новая игра» (режим и карта) поверх меню
     UILabel *_scoreLabel, *_resultLabel;   // командный бой: счёт «Синие 3 : 5 Красные» и итог матча
@@ -109,6 +123,7 @@
         _weapons.bots = _bots;
         _audio = [[AudioEngine alloc] init];
         if (![_audio setup]) NSLog(@"[GameView] AudioEngine setup failed");
+        _audio.muted = [[NSUserDefaults standardUserDefaults] boolForKey:@"ChickenGunMuted"];
         _weapons.audio = _audio;
         _bots.audio = _audio;
         _health = 100.0f; _playerAlive = YES;
@@ -119,7 +134,15 @@
         [self setupButtons];
         [self setupCrosshair];
         [self setupGestures];
-        _menuBtn = [self makeButton:@"Menu" action:@selector(onMenuButton) event:UIControlEventTouchUpInside];
+        _menuBtn = [self makeButton:@"Pause" action:@selector(onPauseButton) event:UIControlEventTouchUpInside];
+        UIImage *menuIcon = HUDImage(@"menu.png");
+        if (menuIcon) {
+            [_menuBtn setTitle:nil forState:UIControlStateNormal];
+            [_menuBtn setImage:menuIcon forState:UIControlStateNormal];
+            _menuBtn.imageView.contentMode = UIViewContentModeScaleAspectFit;
+            _menuBtn.imageEdgeInsets = UIEdgeInsetsMake(7, 7, 7, 7);
+        }
+        _menuBtn.accessibilityLabel = @"Pause";
         _menuBtn.autoresizingMask = UIViewAutoresizingFlexibleRightMargin;
         _menuVisible = YES;
         [self updateUIForMode];
@@ -198,8 +221,13 @@
 }
 
 - (UIButton *)makeButton:(NSString *)title action:(SEL)sel event:(UIControlEvents)event {
-    UIButton *b = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+    UIButton *b = [CGGameMenuButton buttonWithType:UIButtonTypeCustom];
     [b setTitle:title forState:UIControlStateNormal];
+    [b setTitleColor:[UIColor colorWithRed:0.14f green:0.17f blue:0.08f alpha:1] forState:UIControlStateNormal];
+    b.backgroundColor = [UIColor colorWithRed:0.85f green:0.93f blue:0.68f alpha:0.90f];
+    b.layer.borderColor = [UIColor colorWithRed:0.71f green:0.83f blue:0.46f alpha:1].CGColor;
+    b.layer.borderWidth = 1;
+    b.layer.cornerRadius = 4;
     b.titleLabel.font = [UIFont boldSystemFontOfSize:13];
     b.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [b addTarget:self action:sel forControlEvents:event];
@@ -335,7 +363,13 @@
 
 // HUD рассчитан на 568x320 (iPhone 5; на iPhone 4 такой же u = 1). На iPad кнопки, шрифты и прицел растут до 1.6x.
 - (void)layoutButtons {
-    CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+    CGRect area = self.bounds;
+#if __LP64__
+    if ([self respondsToSelector:@selector(safeAreaInsets)])
+        area = UIEdgeInsetsInsetRect(area, ((UIEdgeInsets (*)(id, SEL))objc_msgSend)(self, @selector(safeAreaInsets)));
+#endif
+    CGFloat w = area.size.width, h = area.size.height;
+    CGFloat x = area.origin.x, y = area.origin.y;
     CGFloat u = [self uiScale];
 
     UIFont *small = [UIFont boldSystemFontOfSize:13 * u], *big = [UIFont boldSystemFontOfSize:16 * u];
@@ -345,26 +379,26 @@
     _deathLabel.font = [UIFont boldSystemFontOfSize:34 * u];
 
     // круглые кнопки (диаметры в пунктах при u = 1; пропорции — из PlayerControlsPanel оригинала)
-    _weaponBtn.frame = HUDCircle(w - 54 * u, 78 * u, 58 * u);
-    _jumpBtn.frame = HUDCircle(w - 60 * u, h - 60 * u, 68 * u);
-    _fireBtnR.frame = HUDCircle(w - 60 * u, h - 135 * u, 76 * u);
-    _fireBtnL.frame = HUDCircle(61 * u, h - 135 * u, 76 * u);
-    _reloadBtn.frame = HUDCircle(w - 170 * u, h - 60 * u, 48 * u);
+    _weaponBtn.frame = HUDCircle(x + w - 54 * u, y + 78 * u, 58 * u);
+    _jumpBtn.frame = HUDCircle(x + w - 60 * u, y + h - 60 * u, 68 * u);
+    _fireBtnR.frame = HUDCircle(x + w - 60 * u, y + h - 135 * u, 76 * u);
+    _fireBtnL.frame = HUDCircle(x + 61 * u, y + h - 135 * u, 76 * u);
+    _reloadBtn.frame = HUDCircle(x + w - 170 * u, y + h - 60 * u, 48 * u);
     _stickBase.bounds = CGRectMake(0, 0, 96 * u, 96 * u);     // 80 * 3.75 / 1920 * 568 ≈ 89, чуть крупнее для пальца
     _stickKnob.bounds = CGRectMake(0, 0, 34 * u, 34 * u);
-    _ammoLabel.frame = CGRectMake(w * 0.5f - 130 * u, h - 38 * u, 260 * u, 28 * u);
-    _menuBtn.frame = CGRectMake(10 * u, 6 * u, 82 * u, 28 * u);        // слева сверху (отладочного текста больше нет)
-    _healthLabel.frame = CGRectMake(12 * u, h - 34 * u, 130 * u, 28 * u);
-    _deathLabel.frame = CGRectMake(w * 0.5f - 160 * u, h * 0.5f - 60 * u, 320 * u, 44 * u);
+    _ammoLabel.frame = CGRectMake(x + w * 0.5f - 130 * u, y + h - 38 * u, 260 * u, 28 * u);
+    _menuBtn.frame = CGRectMake(x + 10 * u, y + 6 * u, 44 * u, 36 * u);
+    _healthLabel.frame = CGRectMake(x + 12 * u, y + h - 34 * u, 130 * u, 28 * u);
+    _deathLabel.frame = CGRectMake(x + w * 0.5f - 160 * u, y + h * 0.5f - 60 * u, 320 * u, 44 * u);
     _scoreLabel.font = [UIFont boldSystemFontOfSize:15 * u];
-    _scoreLabel.frame = CGRectMake(w * 0.5f - 110 * u, 4 * u, 220 * u, 22 * u);
+    _scoreLabel.frame = CGRectMake(x + w * 0.5f - 110 * u, y + 4 * u, 220 * u, 22 * u);
     _scoreLabel.layer.cornerRadius = 6 * u;
     _resultLabel.font = [UIFont boldSystemFontOfSize:30 * u];
-    _resultLabel.frame = CGRectMake(w * 0.5f - 200 * u, h * 0.5f - 110 * u, 400 * u, 84 * u);
+    _resultLabel.frame = CGRectMake(x + w * 0.5f - 200 * u, y + h * 0.5f - 110 * u, 400 * u, 84 * u);
     _crosshair.transform = CGAffineTransformMakeScale(u, u);
     _hitMarker.transform = CGAffineTransformMakeScale(u, u);
-    _crosshair.center = CGPointMake(w * 0.5f, h * 0.5f);
-    _hitMarker.center = CGPointMake(w * 0.5f, h * 0.5f);
+    _crosshair.center = CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
+    _hitMarker.center = _crosshair.center;
 }
 
 - (void)updateUIForMode {
@@ -433,6 +467,7 @@
     [EAGLContext setCurrentContext:_context];
     if (_sceneMode) [self onModeButton];      // выгрузить прежнюю сцену (если была)
     [self onModeButton];                      // загрузить выбранную; если не вышло — останемся в просмотрщике
+    if (!_sceneMode) return;
     [_weapons selectWeaponAtIndex:(NSUInteger)MAX((NSInteger)0, [ShopView selectedWeaponIndex])];   // оружие, выбранное в магазине
     [self updateWeaponIcon];
     _menuVisible = NO;
@@ -462,6 +497,8 @@
 
 // Кнопка «Menu» в HUD: выгружаем сцену и возвращаемся в меню.
 - (void)onMenuButton {
+    [_pauseView removeFromSuperview];
+    _pauseView = nil;
     if (_sceneMode) [self onModeButton];      // стоп боты, выгрузка сцены, _sceneMode = NO
     _menuVisible = YES;
     _link.paused = YES;
@@ -469,6 +506,43 @@
     _menu.frame = self.bounds;
     [self addSubview:_menu];                  // последним — поверх всех кнопок
     [_menu startAnimations];
+}
+
+- (void)onPauseButton {
+    if (!_sceneMode || _pauseView) return;
+    _link.paused = YES;
+    _moveTouch = _lookTouch = nil;
+    _stickX = _stickY = 0;
+    _stickBase.hidden = _stickKnob.hidden = YES;
+    _fireTouches = 0;
+    [_weapons setFireHeld:NO];
+    [_audio suspend];
+    _pauseView = [[PauseView alloc] initWithFrame:self.bounds muted:_audio.muted];
+    _pauseView.delegate = self;
+    [self addSubview:_pauseView];
+}
+
+- (void)pauseViewDidResume:(PauseView *)view {
+    if (view != _pauseView) return;
+    [_pauseView removeFromSuperview];
+    _pauseView = nil;
+    _lastTime = 0;
+    if (!_appInactive) {
+        [_audio resume];
+        _link.paused = NO;
+    }
+}
+
+- (void)pauseViewDidLeave:(PauseView *)view {
+    if (view != _pauseView) return;
+    [self onMenuButton];
+    if (!_appInactive) [_audio resume];
+}
+
+- (void)pauseView:(PauseView *)view setMuted:(BOOL)muted {
+    if (view != _pauseView) return;
+    _audio.muted = muted;
+    [[NSUserDefaults standardUserDefaults] setBool:muted forKey:@"ChickenGunMuted"];
 }
 
 - (void)onJumpButton {
@@ -665,10 +739,32 @@
     [self createBuffers];
 }
 
+#if __LP64__
+- (void)safeAreaInsetsDidChange {
+    [super safeAreaInsetsDidChange];
+    [self setNeedsLayout];
+}
+#endif
+
 #pragma mark - Цикл
 
-- (void)pause  { _link.paused = YES; glFinish(); [_audio suspend]; }   // GL и звук в фоне запрещены
-- (void)resume { _lastTime = 0; _link.paused = _menuVisible; [_audio resume]; }
+- (void)pause {
+    _appInactive = YES;
+    _link.paused = YES;
+    _moveTouch = _lookTouch = nil;
+    _stickX = _stickY = 0;
+    _stickBase.hidden = _stickKnob.hidden = YES;
+    _fireTouches = 0;
+    [_weapons setFireHeld:NO];
+    glFinish();
+    [_audio suspend];
+}
+- (void)resume {
+    _appInactive = NO;
+    _lastTime = 0;
+    _link.paused = _menuVisible || _pauseView != nil;
+    if (!_pauseView) [_audio resume];
+}
 
 - (void)drawFrame:(CADisplayLink *)link {
     if (!_context || !_fbo) return;

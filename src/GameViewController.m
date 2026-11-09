@@ -8,6 +8,10 @@
 }
 
 - (BOOL)shouldAutorotate { return YES; }
+#if __LP64__
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
+#else
 - (NSUInteger)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
+#endif
 
 @end

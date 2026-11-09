@@ -127,7 +127,7 @@ static UIImage *ShadowImage(void) {
         _title1 = [self labelWithColor:COL_TITLE];
         _title1.text = @"ChickenGun";
         _title2 = [self labelWithColor:COL_TITLE];
-        _title2.text = @"Rooster Rudy";
+        _title2.text = @"by lime and sqmrak :3";
         [self addSubview:_title1];
         [self addSubview:_title2];
 
@@ -254,7 +254,8 @@ static UIImage *ShadowImage(void) {
 
     // заголовок
     _title1.font = MenuFont(MAX(50 * s, 22));
-    _title2.font = _title1.font;
+    _title2.font = MenuFont(MAX(30 * s, 14));
+    _title2.adjustsFontSizeToFitWidth = YES;
     _title1.frame = R(1, 0, 600, 24, 500, 48);
     _title2.frame = R(1, 0, 600, 80, 500, 48);
 
@@ -331,16 +332,12 @@ static UIImage *ShadowImage(void) {
 - (void)onShop {
     id<MenuViewDelegate> d = self.delegate;
     if ([d respondsToSelector:@selector(menuViewDidPressShop:)]) [d menuViewDidPressShop:self];
-    else [self comingSoon:@"Shop"];
+    else NSLog(@"[Menu] shop delegate unavailable");
 }
 
 - (void)onServers {
-    [self comingSoon:@"Servers"];
-}
-
-- (void)comingSoon:(NSString *)what {
-    UIAlertView *a = [[UIAlertView alloc] initWithTitle:what
-                                                message:@"Скоро"
+    UIAlertView *a = [[UIAlertView alloc] initWithTitle:@"Servers"
+                                                message:@"Online multiplayer is not available. Choose Play to play with bots."
                                                delegate:nil
                                       cancelButtonTitle:@"OK"
                                       otherButtonTitles:nil];
