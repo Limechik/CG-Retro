@@ -16,7 +16,8 @@
 	<key>UIStatusBarHidden</key><true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key><false/>
 	<key>UIRequiredDeviceCapabilities</key>
-	<array><string>armv7</string><string>opengles-2</string></array>
+	<array><string>opengles-2</string></array>
+	<key>UILaunchScreen</key><dict/>
 	<key>UIInterfaceOrientation</key><string>UIInterfaceOrientationLandscapeRight</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -38,7 +39,7 @@
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
 			<key>CFBundleIconFiles</key>
-			<array><string>Icon.png</string><string>Icon@2x.png</string><string>Icon-72.png</string><string>Icon-72@2x.png</string><string>Icon-Small.png</string><string>Icon-Small@2x.png</string><string>Icon-Small-50.png</string><string>Icon-Small-50@2x.png</string></array>
+			<array><string>Icon.png</string><string>Icon@2x.png</string><string>Icon-60@2x.png</string><string>Icon-60@3x.png</string><string>Icon-Small.png</string><string>Icon-Small@2x.png</string></array>
 			<key>UIPrerenderedIcon</key><true/>
 		</dict>
 	</dict>
@@ -47,7 +48,7 @@
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
 			<key>CFBundleIconFiles</key>
-			<array><string>Icon.png</string><string>Icon@2x.png</string><string>Icon-72.png</string><string>Icon-72@2x.png</string><string>Icon-Small.png</string><string>Icon-Small@2x.png</string><string>Icon-Small-50.png</string><string>Icon-Small-50@2x.png</string></array>
+			<array><string>Icon-72.png</string><string>Icon-72@2x.png</string><string>Icon-76.png</string><string>Icon-76@2x.png</string><string>Icon-83.5@2x.png</string><string>Icon-Small.png</string><string>Icon-Small@2x.png</string><string>Icon-Small-50.png</string><string>Icon-Small-50@2x.png</string></array>
 			<key>UIPrerenderedIcon</key><true/>
 		</dict>
 	</dict>

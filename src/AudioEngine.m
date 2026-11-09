@@ -3,6 +3,7 @@
 #import <OpenAL/al.h>
 #import <OpenAL/alc.h>
 #import <AVFoundation/AVFoundation.h>
+#include <dlfcn.h>
 
 #define MAX_SOURCES 24
 #define REF_DISTANCE 3.0f
@@ -39,8 +40,14 @@
 
 - (BOOL)setup {
     // не прерывать музыку игрока и уважать переключатель «без звука»
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryAmbient error:nil];
+    Class sessionClass = NSClassFromString(@"AVAudioSession");
+    NSString * __unsafe_unretained *category = (NSString * __unsafe_unretained *)dlsym(RTLD_DEFAULT, "AVAudioSessionCategoryAmbient");
+    if (!sessionClass || !category || !*category) {
+        NSLog(@"[Audio] ambient audio session unavailable");
+        return NO;
+    }
+    AVAudioSession *session = [sessionClass sharedInstance];
+    [session setCategory:*category error:nil];
     [session setActive:YES error:nil];
 
     _device = alcOpenDevice(NULL);
@@ -168,7 +175,7 @@
 
 - (void)resume {
     if (!_ready || !_suspended) return;
-    [[AVAudioSession sharedInstance] setActive:YES error:nil];
+    [[NSClassFromString(@"AVAudioSession") sharedInstance] setActive:YES error:nil];
     alcMakeContextCurrent(_context);
     alcProcessContext(_context);
     _suspended = NO;

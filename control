@@ -1,7 +1,7 @@
 Package: com.lime.cg-retro
 Name: Chicken Gun
 Version: 0.0.1
-Architecture: iphoneos-arm
+Architecture: all
 Description: Личный эксперимент: порт Chicken Gun на iOS 6 (GLES2)
 Maintainer: you
 Author: you

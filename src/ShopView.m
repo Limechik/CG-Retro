@@ -376,7 +376,7 @@ static UIImage *ShopShadowImage(void) {
 }
 
 - (void)onFreeCoins {
-    UIAlertView *a = [[UIAlertView alloc] initWithTitle:@"Free coins" message:@"Скоро" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+    UIAlertView *a = [[UIAlertView alloc] initWithTitle:@"Free coins" message:@"Rewards are not available. Items can be selected without coins." delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
     [a show];
 }
 

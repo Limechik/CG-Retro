@@ -1,19 +1,66 @@
-# Chicken Gun (порт с нуля) — theos, iOS 6.1 SDK, OpenGL ES 2.0
-export ARCHS = armv7
-# SDK 6.1, минимальная версия iOS 6.0 (комментарий не в той же строке: пробелы перед # попали бы в значение TARGET)
-export TARGET = iphone:clang:6.1:6.0
+THEOS ?= $(error set THEOS to the Theos directory)
+TC ?= $(THEOS)/toolchain/linux/iphone/bin
+CG_SDK_V7 ?= $(error set CG_SDK_V7 to the armv7 SDK)
+CG_SDK_V64 ?= $(error set CG_SDK_V64 to the arm64 SDK)
+CG_CRT_V7 ?= $(CG_SDK_V7)/usr/lib/crt1.o
+BUILD ?= build
+CC := $(TC)/clang
+SOURCES := $(wildcard src/*.m) $(wildcard src/*.c)
+OBJECTS_V7 := $(addprefix $(BUILD)/armv7/,$(addsuffix .o,$(SOURCES)))
+OBJECTS_V64 := $(addprefix $(BUILD)/arm64/,$(addsuffix .o,$(SOURCES)))
+FRAMEWORKS := -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework OpenAL -framework AVFoundation
+CFLAGS := -Wall -O2 -Isrc -fblocks
 
-# export THEOS_DEVICE_IP = 192.168.x.x   # для `make package install`
+.PHONY: all test deb ipa clean
+all: $(BUILD)/ChickenGun
 
-include $(THEOS)/makefiles/common.mk
+$(BUILD)/armv7/%.m.o: %.m
+	@mkdir -p $(@D)
+	$(CC) -target arm-apple-darwin11 -B $(TC) -arch armv7 -miphoneos-version-min=6.0 -isysroot $(CG_SDK_V7) $(CFLAGS) -fobjc-arc -c $< -o $@
 
-APPLICATION_NAME = ChickenGun
+$(BUILD)/armv7/%.c.o: %.c
+	@mkdir -p $(@D)
+	$(CC) -target arm-apple-darwin11 -B $(TC) -arch armv7 -miphoneos-version-min=6.0 -isysroot $(CG_SDK_V7) $(CFLAGS) -c $< -o $@
 
-ChickenGun_FILES = $(wildcard src/*.m) $(wildcard src/*.c)
-ChickenGun_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore OpenGLES OpenAL AVFoundation
-ChickenGun_CFLAGS = -fobjc-arc -Wall -O2 -Isrc
+$(BUILD)/arm64/%.m.o: %.m
+	@mkdir -p $(@D)
+	$(CC) -target arm64-apple-darwin -B $(TC) -arch arm64 -miphoneos-version-min=7.0 -isysroot $(CG_SDK_V64) $(CFLAGS) -fobjc-arc -c $< -o $@
 
-include $(THEOS_MAKE_PATH)/application.mk
+$(BUILD)/arm64/%.c.o: %.c
+	@mkdir -p $(@D)
+	$(CC) -target arm64-apple-darwin -B $(TC) -arch arm64 -miphoneos-version-min=7.0 -isysroot $(CG_SDK_V64) $(CFLAGS) -c $< -o $@
 
-after-install::
-	install.exec "uicache"
+$(BUILD)/armv7/ChickenGun: $(OBJECTS_V7)
+	$(CC) -target arm-apple-darwin11 -B $(TC) -arch armv7 -miphoneos-version-min=6.0 -isysroot $(CG_SDK_V7) -nostartfiles $(CG_CRT_V7) $^ $(FRAMEWORKS) -o $@
+
+$(BUILD)/arm64/ChickenGun: $(OBJECTS_V64)
+	$(CC) -target arm64-apple-darwin -B $(TC) -arch arm64 -miphoneos-version-min=7.0 -isysroot $(CG_SDK_V64) $^ $(FRAMEWORKS) -weak_framework AVFAudio -o $@
+
+$(BUILD)/ChickenGun: $(BUILD)/armv7/ChickenGun $(BUILD)/arm64/ChickenGun
+	$(TC)/lipo -create $^ -output $@
+	$(TC)/ldid -S $@
+
+test:
+	DUMP_ASSETS="$${DUMP_ASSETS:-}" sh tools/tests/run_all.sh
+
+deb: $(BUILD)/ChickenGun
+	rm -rf $(BUILD)/stage
+	mkdir -p $(BUILD)/stage/DEBIAN $(BUILD)/stage/Applications/ChickenGun.app
+	cp control $(BUILD)/stage/DEBIAN/control
+	cp -R Resources/. $(BUILD)/stage/Applications/ChickenGun.app/
+	cp $(BUILD)/ChickenGun $(BUILD)/stage/Applications/ChickenGun.app/ChickenGun
+	chmod 755 $(BUILD)/stage/Applications/ChickenGun.app/ChickenGun
+	dpkg-deb --root-owner-group -Zgzip --build $(BUILD)/stage $(BUILD)/cg-retro.deb
+
+ipa: $(BUILD)/ChickenGun
+	rm -rf $(BUILD)/ipa-stage
+	mkdir -p $(BUILD)/ipa-stage/Payload/ChickenGun.app
+	cp -R Resources/. $(BUILD)/ipa-stage/Payload/ChickenGun.app/
+	cp $(BUILD)/ChickenGun $(BUILD)/ipa-stage/Payload/ChickenGun.app/ChickenGun
+	chmod 755 $(BUILD)/ipa-stage/Payload/ChickenGun.app/ChickenGun
+	rm -f $(BUILD)/cg-retro.ipa
+	cd $(BUILD)/ipa-stage && zip -qr "$(abspath $(BUILD))/cg-retro.ipa" Payload
+	unzip -tq $(BUILD)/cg-retro.ipa
+
+clean:
+	rm -rf $(BUILD)
