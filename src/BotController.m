@@ -15,6 +15,19 @@
 #define TEAM_BLUE_BOTS 2           // командный бой: игрок + 2 бота против 3 ботов
 #define TEAM_RED_BOTS 3
 #define SCORE_LIMIT 15
+#define OUTFIT_CATEGORIES 3
+#define OUTFIT_CHOICES 8
+#define OUTFIT_PARTS 128
+
+typedef struct {
+    CGMesh mesh;
+    unsigned node;
+    float color[3];
+} CGBotOutfitPart;
+
+typedef struct {
+    unsigned first, count;
+} CGBotOutfitChoice;
 
 // Цвет оперения по командам (множитель к цвету части): 0 — без команды, 1 — синие, 2 — красные.
 static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0f }, { 1.0f, 0.58f, 0.52f } };
@@ -34,6 +47,10 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
 
     CGBot _bots[MAX_BOTS];
     BOOL _active[MAX_BOTS];
+    CGBotOutfitPart _outfitParts[OUTFIT_PARTS];
+    CGBotOutfitChoice _outfitChoices[OUTFIT_CATEGORIES][OUTFIT_CHOICES];
+    unsigned _outfitPartCount, _outfitChoiceCount[OUTFIT_CATEGORIES];
+    unsigned _botOutfit[MAX_BOTS][OUTFIT_CATEGORIES];
 
     GameScene *_scene;
     float *_spawns;       unsigned _spawnCount;
@@ -57,9 +74,51 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
 }
 
 - (void)dealloc {
+    for (unsigned i = 0; i < _outfitPartCount; i++) CGMeshFree(&_outfitParts[i].mesh);
     free(_spawns);
     free(_meshes); free(_texs); free(_partMesh); free(_partTex); free(_partTint);
     cgrig_free(_rig);
+}
+
+- (BOOL)loadOutfitsFrom:(NSString *)resources {
+    NSString *dir = [resources stringByAppendingPathComponent:@"bot-outfits"];
+    NSArray *categories = [NSArray arrayWithContentsOfFile:[dir stringByAppendingPathComponent:@"outfits.plist"]];
+    if (![categories isKindOfClass:[NSArray class]] || [categories count] != OUTFIT_CATEGORIES) return NO;
+    for (unsigned c = 0; c < OUTFIT_CATEGORIES; c++) {
+        NSDictionary *category = categories[c];
+        if (![category isKindOfClass:[NSDictionary class]]) return NO;
+        NSArray *items = category[@"items"];
+        if (![items isKindOfClass:[NSArray class]] || [items count] >= OUTFIT_CHOICES) return NO;
+        _outfitChoiceCount[c] = 1;
+        for (NSDictionary *item in items) {
+            if (![item isKindOfClass:[NSDictionary class]]) return NO;
+            NSArray *parts = item[@"parts"];
+            if (![parts isKindOfClass:[NSArray class]] || [parts count] == 0 || [parts count] > OUTFIT_PARTS - _outfitPartCount) return NO;
+            CGBotOutfitChoice *choice = &_outfitChoices[c][_outfitChoiceCount[c]];
+            choice->first = _outfitPartCount;
+            for (NSDictionary *entry in parts) {
+                if (![entry isKindOfClass:[NSDictionary class]]) return NO;
+                NSString *nodeName = entry[@"node"], *mesh = entry[@"mesh"];
+                NSArray *color = entry[@"color"];
+                if (![nodeName isKindOfClass:[NSString class]] || ![mesh isKindOfClass:[NSString class]] ||
+                    ![mesh isEqualToString:[mesh lastPathComponent]] || ![color isKindOfClass:[NSArray class]] || [color count] != 3) return NO;
+                unsigned node = 0;
+                while (node < _rig->nodeCount && strcmp(_rig->nodes[node].name, [nodeName UTF8String]) != 0) node++;
+                if (node == _rig->nodeCount) return NO;
+                CGBotOutfitPart *part = &_outfitParts[_outfitPartCount];
+                part->node = node;
+                for (int k = 0; k < 3; k++) {
+                    if (![color[k] isKindOfClass:[NSNumber class]]) return NO;
+                    part->color[k] = [color[k] floatValue];
+                }
+                if (!CGMeshLoad([dir stringByAppendingPathComponent:mesh], &part->mesh)) return NO;
+                _outfitPartCount++;
+                choice->count++;
+            }
+            _outfitChoiceCount[c]++;
+        }
+    }
+    return YES;
 }
 
 #pragma mark - Подготовка
@@ -112,6 +171,12 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
             if (ti) _partTex[i] = [ti intValue];
         }
     }
+    if (![self loadOutfitsFrom:res]) {
+        NSLog(@"[Bots] failed to load outfits");
+        for (unsigned i = 0; i < _outfitPartCount; i++) CGMeshFree(&_outfitParts[i].mesh);
+        _outfitPartCount = 0;
+        memset(_outfitChoiceCount, 0, sizeof(_outfitChoiceCount));
+    }
     return YES;
 }
 
@@ -141,6 +206,10 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
     if (!ok) { _active[i] = NO; return; }
     _rng = _rng * 1664525u + 1013904223u;
     cgbot_init(&_bots[i], sp, _rng | 1u);
+    for (unsigned c = 0; c < OUTFIT_CATEGORIES; c++)
+        _botOutfit[i][c] = _outfitChoiceCount[c] ? arc4random_uniform(_outfitChoiceCount[c]) : 0;
+    if (_outfitChoiceCount[0] > 1 && !_botOutfit[i][0] && !_botOutfit[i][1] && !_botOutfit[i][2])
+        _botOutfit[i][0] = 1 + arc4random_uniform(_outfitChoiceCount[0] - 1);
     _active[i] = YES;
 }
 
@@ -277,7 +346,7 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
 
 #pragma mark - Отрисовка
 
-- (void)drawBot:(const CGBot *)b team:(int)team view:(const float *)view {
+- (void)drawBot:(const CGBot *)b index:(int)botIndex team:(int)team view:(const float *)view {
     // поза: idle, поверх бег (кроссфейд), поверх отдача при выстреле
     CGRigPose pose;
     cgrig_rest_pose(_rig, &pose);
@@ -324,6 +393,26 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
         glDrawElements(GL_TRIANGLES, m->indexCount, GL_UNSIGNED_SHORT, (const void *)0);
     }
     glFrontFace(GL_CCW);
+    glDisable(GL_CULL_FACE);
+    glUniform1f(_P.uHasTex, 0.0f);
+    glUniform1f(_P.uCutout, 0.0f);
+    for (unsigned c = 0; c < OUTFIT_CATEGORIES; c++) {
+        if (!_outfitChoiceCount[c]) continue;
+        CGBotOutfitChoice choice = _outfitChoices[c][_botOutfit[botIndex][c]];
+        for (unsigned i = choice.first; i < choice.first + choice.count; i++) {
+            CGBotOutfitPart *part = &_outfitParts[i];
+            const float *W = world[part->node];
+            float mv[16], nm[9];
+            mat4_mul(mv, view, W);
+            mat3_from_mat4(nm, W);
+            glUniformMatrix4fv(_P.uMV, 1, GL_FALSE, mv);
+            glUniformMatrix3fv(_P.uNormalMat, 1, GL_FALSE, nm);
+            glUniform3f(_P.uColor, part->color[0], part->color[1] * tintG, part->color[2] * tintG);
+            CGBindVertexLayout(part->mesh.vbo, part->mesh.ibo);
+            glDrawElements(GL_TRIANGLES, part->mesh.indexCount, GL_UNSIGNED_SHORT, (const void *)0);
+        }
+    }
+    glEnable(GL_CULL_FACE);
 }
 
 - (void)drawWithScene:(GameScene *)scene {
@@ -343,7 +432,7 @@ static const float kTeamTint[3][3] = { { 1.0f, 1.0f, 1.0f }, { 0.62f, 0.78f, 1.0
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     for (int i = 0; i < MAX_BOTS; i++) {
-        if (_active[i]) [self drawBot:&_bots[i] team:(_mode == CGGameModeTeam ? _team[i] : 0) view:view];
+        if (_active[i]) [self drawBot:&_bots[i] index:i team:(_mode == CGGameModeTeam ? _team[i] : 0) view:view];
     }
 }
 

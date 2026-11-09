@@ -6,13 +6,14 @@ CG_CRT_V7 ?= $(CG_SDK_V7)/usr/lib/crt1.o
 BUILD ?= build
 VERSION := $(shell awk '/^Version:/ { print $$2; exit }' control)
 CC := $(TC)/clang
+PYTHON ?= python3
 SOURCES := $(wildcard src/*.m) $(wildcard src/*.c)
 OBJECTS_V7 := $(addprefix $(BUILD)/armv7/,$(addsuffix .o,$(SOURCES)))
 OBJECTS_V64 := $(addprefix $(BUILD)/arm64/,$(addsuffix .o,$(SOURCES)))
 FRAMEWORKS := -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework OpenAL -framework AVFoundation
 CFLAGS := -Wall -O2 -Isrc -fblocks
 
-.PHONY: all test deb ipa clean
+.PHONY: all test test-assets deb ipa clean
 all: $(BUILD)/ChickenGun
 
 $(BUILD)/armv7/%.m.o: %.m
@@ -43,6 +44,9 @@ $(BUILD)/ChickenGun: $(BUILD)/armv7/ChickenGun $(BUILD)/arm64/ChickenGun
 
 test:
 	DUMP_ASSETS="$${DUMP_ASSETS:-}" sh tools/tests/run_all.sh
+
+test-assets:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/tests/outfit_check.py
 
 deb: $(BUILD)/ChickenGun
 	rm -rf $(BUILD)/stage

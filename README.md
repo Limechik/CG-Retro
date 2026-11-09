@@ -3,6 +3,7 @@
 <img src="assets/screenshot.png" width="480" alt="cg-retro">
 
 chicken gun port for jailbroken ios 6 and later, armv7 and arm64.
+bots get a random combination of hats, glasses and shoes when they spawn.
 
 ## build
 
@@ -11,12 +12,14 @@ export THEOS=/path/to/theos
 export CG_SDK_V7=/path/to/armv7-iphoneos.sdk
 export CG_SDK_V64=/path/to/iPhoneOS16.5.sdk
 make test
+make test-assets PYTHON=/path/to/python
 make deb
 make ipa
 ```
 
 the arm64 build needs the ios 16.5 sdk. `CG_CRT_V7` overrides the armv7 startup
 object when it is outside the sdk.
+the asset tests need python with numpy and pillow.
 the package is `build/cg-retro-*.deb`, with the app in `/Applications` for a
 rootful jailbreak. installation and app registration are not part of the build.
 `build/cg-retro-*.ipa` contains the same ad-hoc signed app in `Payload`. install

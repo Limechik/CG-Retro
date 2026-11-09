@@ -8,7 +8,8 @@ from PIL import Image
 
 
 def load_cgm(path):
-    b = open(path, 'rb').read(); vc, ic = struct.unpack_from('<II', b, 4)
+    with open(path, 'rb') as f: b = f.read()
+    vc, ic = struct.unpack_from('<II', b, 4)
     return np.frombuffer(b, '<f4', vc * 8, 36).reshape(vc, 8), np.frombuffer(b, '<u2', ic, 36 + vc * 32).reshape(-1, 3)
 
 
@@ -43,7 +44,8 @@ def qmat(q):
 
 class Rig:
     def __init__(self, path):
-        d = open(path, 'rb').read(); assert d[:4] == b'CGR1'
+        with open(path, 'rb') as f: d = f.read()
+        assert d[:4] == b'CGR1'
         nn, npart, nclip = struct.unpack_from('<3I', d, 4); off = 16
         self.nodes = []; self.parts = []; self.clips = {}
         for i in range(nn):
@@ -200,7 +202,7 @@ def render_layer(items, occluders, W, H, yaw=0.0, pitch=0.0, ss=3, view=None, li
                 lit = amb + (1 - amb) * np.abs(n_ @ L)
                 if tex is not None:
                     u = w0*uv[a,0] + w1*uv[b,0] + w2*uv[cc,0]; vv = w0*uv[a,1] + w1*uv[b,1] + w2*uv[cc,1]
-                    colr = tex[(np.clip(vv % 1, 0, .9999)*th).astype(int), (np.clip(u % 1, 0, .9999)*tw).astype(int)] / 255.0 * col
+                    colr = tex[(np.clip(vv % 1, 0, .9999)*th).astype(int), (np.clip(u % 1, 0, .9999)*tw).astype(int)] * col
                 else: colr = np.broadcast_to(col, upd.shape + (3,)) * 255.0
                 img[y0:y1+1, x0:x1+1][upd] = np.clip(colr * lit[..., None], 0, 255)[upd]
 
