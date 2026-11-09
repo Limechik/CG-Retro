@@ -1,5 +1,7 @@
 # cg-retro
 
+<img src="assets/screenshot.png" width="480" alt="cg-retro">
+
 chicken gun port for jailbroken ios 6 and later, armv7 and arm64.
 
 ## build
